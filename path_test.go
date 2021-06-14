@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -97,6 +98,7 @@ func TestPathGet(t *testing.T) {
 		if err := json.Get("..b", v, &b); err != nil {
 			t.Fatal(err)
 		}
+		sort.Ints(b)
 		if !reflect.DeepEqual(b, []int{1, 2, 3, 4}) {
 			t.Fatalf("failed to decode by json.Get")
 		}
