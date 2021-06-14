@@ -3,6 +3,7 @@ package decoder
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/goccy/go-json/internal/errors"
 )
@@ -193,8 +194,8 @@ func (b *pathBuilder) Build() Path {
 type Path interface {
 	fmt.Stringer
 	chain(Path) Path
-	Index(int) (Path, error)
-	Field(string) (Path, error)
+	Index(int) (Path, bool, error)
+	Field(string) (Path, bool, error)
 	target() bool
 	allRead() bool
 	single() bool
@@ -229,19 +230,19 @@ type selectorNode struct {
 func newSelectorNode(selector string) *selectorNode {
 	return &selectorNode{
 		basePathNode: &basePathNode{},
-		selector:     selector,
+		selector:     strings.ToLower(selector),
 	}
 }
 
-func (n *selectorNode) Index(idx int) (Path, error) {
-	return nil, &errors.PathError{}
+func (n *selectorNode) Index(idx int) (Path, bool, error) {
+	return nil, false, &errors.PathError{}
 }
 
-func (n *selectorNode) Field(fieldName string) (Path, error) {
+func (n *selectorNode) Field(fieldName string) (Path, bool, error) {
 	if n.selector == fieldName {
-		return n.child, nil
+		return n.child, true, nil
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
 func (n *selectorNode) String() string {
@@ -264,15 +265,15 @@ func newIndexNode(selector int) *indexNode {
 	}
 }
 
-func (n *indexNode) Index(idx int) (Path, error) {
+func (n *indexNode) Index(idx int) (Path, bool, error) {
 	if n.selector == idx {
-		return n.child, nil
+		return n.child, true, nil
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
-func (n *indexNode) Field(fieldName string) (Path, error) {
-	return nil, &errors.PathError{}
+func (n *indexNode) Field(fieldName string) (Path, bool, error) {
+	return nil, false, &errors.PathError{}
 }
 
 func (n *indexNode) String() string {
@@ -293,12 +294,12 @@ func newIndexAllNode() *indexAllNode {
 	}
 }
 
-func (n *indexAllNode) Index(idx int) (Path, error) {
-	return n.child, nil
+func (n *indexAllNode) Index(idx int) (Path, bool, error) {
+	return n.child, true, nil
 }
 
-func (n *indexAllNode) Field(fieldName string) (Path, error) {
-	return nil, &errors.PathError{}
+func (n *indexAllNode) Field(fieldName string) (Path, bool, error) {
+	return nil, false, &errors.PathError{}
 }
 
 func (n *indexAllNode) String() string {
@@ -321,15 +322,15 @@ func newRecursiveNode(selector string) *recursiveNode {
 	}
 }
 
-func (n *recursiveNode) Field(fieldName string) (Path, error) {
+func (n *recursiveNode) Field(fieldName string) (Path, bool, error) {
 	if n.selector == fieldName {
-		return n.child, nil
+		return n.child, true, nil
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
-func (n *recursiveNode) Index(_ int) (Path, error) {
-	return n, nil
+func (n *recursiveNode) Index(_ int) (Path, bool, error) {
+	return n, true, nil
 }
 
 func (n *recursiveNode) String() string {

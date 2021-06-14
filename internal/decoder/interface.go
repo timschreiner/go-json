@@ -405,7 +405,7 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {
 	case '{':
-		if (ctx.Option.Flags&PathOption) != 0 && !ctx.Option.Path.target() {
+		if (ctx.Option.Flags&PathOption) != 0 && ctx.Option.Path != nil {
 			return d.mapDecoder.DecodePath(ctx, cursor, depth, p)
 		}
 		var v map[string]interface{}
@@ -417,7 +417,7 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 		**(**interface{})(unsafe.Pointer(&p)) = v
 		return cursor, nil
 	case '[':
-		if (ctx.Option.Flags&PathOption) != 0 && !ctx.Option.Path.target() && ctx.Option.Path.single() {
+		if (ctx.Option.Flags&PathOption) != 0 && ctx.Option.Path != nil && ctx.Option.Path.single() {
 			return d.sliceDecoder.DecodePath(ctx, cursor, depth, p)
 		}
 		var v []interface{}

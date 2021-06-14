@@ -288,7 +288,11 @@ func UnmarshalWithOption(data []byte, v interface{}, optFuncs ...DecodeOptionFun
 }
 
 func UnmarshalPath(path PathString, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
-	return unmarshalPath(path, data, v, optFuncs...)
+	p, err := path.Build()
+	if err != nil {
+		return err
+	}
+	return unmarshalPath(p, data, v, optFuncs...)
 }
 
 func UnmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {

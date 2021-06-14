@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"reflect"
+	"strings"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -205,22 +206,20 @@ func (d *mapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64, p unsa
 			return 0, errors.ErrExpected("colon after object key", cursor)
 		}
 		cursor++
-		field, err := ctx.Option.Path.Field(string(key))
+		child, found, err := ctx.Option.Path.Field(strings.ToLower(string(key)))
 		if err != nil {
 			return 0, err
 		}
-		if field != nil {
+		if found {
 			oldPath := ctx.Option.Path
-			ctx.Option.Path = field
+			ctx.Option.Path = child
 			c, err := d.valueDecoder.Decode(ctx, cursor, depth, p)
 			if err != nil {
 				return 0, err
 			}
 			ctx.Option.Path = oldPath
 			cursor = c
-			if field.allRead() {
-				return skipObject(buf, cursor, depth)
-			}
+			return skipObject(buf, cursor, depth)
 		} else {
 			c, err := skipValue(buf, cursor, depth)
 			if err != nil {

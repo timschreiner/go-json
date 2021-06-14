@@ -83,11 +83,7 @@ func unmarshalContext(ctx context.Context, data []byte, v interface{}, optFuncs 
 	return validateEndBuf(src, cursor)
 }
 
-func unmarshalPath(pathStr PathString, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
-	path, err := pathStr.Build()
-	if err != nil {
-		return err
-	}
+func unmarshalPath(path *Path, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)
 
@@ -106,7 +102,7 @@ func unmarshalPath(pathStr PathString, data []byte, v interface{}, optFuncs ...D
 	ctx.Buf = src
 	ctx.Option.Flags = 0
 	ctx.Option.Flags |= decoder.PathOption
-	ctx.Option.Path = path
+	ctx.Option.Path = path.path
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
 	}

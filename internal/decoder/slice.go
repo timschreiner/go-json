@@ -320,11 +320,11 @@ func (d *sliceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64, p un
 			}
 			idx := 0
 			for {
-				child, err := ctx.Option.Path.Index(idx)
+				child, found, err := ctx.Option.Path.Index(idx)
 				if err != nil {
 					return 0, err
 				}
-				if child != nil {
+				if found {
 					oldPath := ctx.Option.Path
 					ctx.Option.Path = child
 					c, err := d.valueDecoder.Decode(ctx, cursor, depth, p)
