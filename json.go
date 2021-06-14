@@ -299,6 +299,14 @@ func UnmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc)
 	return unmarshalNoEscape(data, v, optFuncs...)
 }
 
+func Get(path PathString, src, dst interface{}) error {
+	p, err := path.Build()
+	if err != nil {
+		return err
+	}
+	return p.Get(src, dst)
+}
+
 // A Token holds a value of one of these types:
 //
 //	Delim, for the four JSON delimiters [ ] { }

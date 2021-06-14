@@ -45,3 +45,53 @@ func AssignValue(dst, src interface{}) error {
 	}
 	return fmt.Errorf("cannot assign value %T to %T", srcValue.Interface(), dst)
 }
+
+func assignValue(src, dst reflect.Value) error {
+	if src.Type().Kind() == reflect.Interface {
+		return assignValue(reflect.ValueOf(src.Interface()), dst)
+	}
+	if dst.Type().Kind() != reflect.Ptr {
+		return fmt.Errorf("invalid dst type. required pointer type: %T", dst.Type())
+	}
+	dst = dst.Elem()
+	switch dst.Type().Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if src.Kind() == reflect.Float64 {
+			dst.SetInt(int64(src.Float()))
+			return nil
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		if src.Kind() == reflect.Float64 {
+			dst.SetUint(uint64(src.Float()))
+			return nil
+		}
+	case reflect.String:
+		if src.Kind() == reflect.String {
+			dst.SetString(src.String())
+			return nil
+		}
+	case reflect.Bool:
+		if src.Kind() == reflect.Bool {
+			dst.SetBool(src.Bool())
+			return nil
+		}
+	case reflect.Float32, reflect.Float64:
+		if src.Kind() == reflect.Float64 {
+			dst.SetFloat(src.Float())
+			return nil
+		}
+	case reflect.Interface:
+		dst.Set(src)
+	case reflect.Array:
+	case reflect.Slice:
+		if src.Kind() != reflect.Slice {
+			v := reflect.New(dst.Type().Elem())
+			assignValue(src, v)
+			dst.Set(reflect.Append(dst, v.Elem()))
+		}
+	case reflect.Map:
+	case reflect.Struct:
+	case reflect.Ptr:
+	}
+	return fmt.Errorf("cannot assign value %T to %T", src.Interface(), dst.Interface())
+}

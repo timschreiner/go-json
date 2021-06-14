@@ -2,10 +2,12 @@ package decoder
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 // PathString represents JSON Path
@@ -35,14 +37,17 @@ func (s PathString) Build() (Path, error) {
 				return nil, err
 			}
 			cursor = c
-			start = cursor
+			start = cursor + 1
 		case '[':
+			if start < cursor {
+				builder.child(string(buf[start:cursor]))
+			}
 			c, err := builder.parsePathIndex(buf, cursor)
 			if err != nil {
 				return nil, err
 			}
 			cursor = c
-			start = cursor
+			start = cursor + 1
 		}
 		cursor++
 	}
@@ -196,6 +201,7 @@ type Path interface {
 	chain(Path) Path
 	Index(int) (Path, bool, error)
 	Field(string) (Path, bool, error)
+	Get(reflect.Value, reflect.Value) error
 	target() bool
 	allRead() bool
 	single() bool
@@ -245,6 +251,51 @@ func (n *selectorNode) Field(fieldName string) (Path, bool, error) {
 	return nil, false, nil
 }
 
+func (n *selectorNode) Get(src, dst reflect.Value) error {
+	switch src.Type().Kind() {
+	case reflect.Map:
+		iter := src.MapRange()
+		for iter.Next() {
+			key, ok := iter.Key().Interface().(string)
+			if !ok {
+				return fmt.Errorf("invalid map key type %T", src.Type().Key())
+			}
+			child, found, err := n.Field(strings.ToLower(key))
+			if err != nil {
+				return err
+			}
+			if found {
+				if child != nil {
+					return child.Get(iter.Value(), dst)
+				}
+				return assignValue(iter.Value(), dst)
+			}
+		}
+	case reflect.Struct:
+		typ := src.Type()
+		for i := 0; i < typ.Len(); i++ {
+			tag := runtime.StructTagFromField(typ.Field(i))
+			child, found, err := n.Field(strings.ToLower(tag.Key))
+			if err != nil {
+				return err
+			}
+			if found {
+				if child != nil {
+					return child.Get(src.Field(i), dst)
+				}
+				return assignValue(src.Field(i), dst)
+			}
+		}
+	case reflect.Ptr:
+		return n.Get(src.Elem(), dst)
+	case reflect.Interface:
+		return n.Get(reflect.ValueOf(src.Interface()), dst)
+	case reflect.Float64, reflect.String, reflect.Bool:
+		return assignValue(src, dst)
+	}
+	return fmt.Errorf("failed to get %s value from %s", n.selector, src.Type())
+}
+
 func (n *selectorNode) String() string {
 	s := fmt.Sprintf(".%s", n.selector)
 	if n.child != nil {
@@ -276,6 +327,23 @@ func (n *indexNode) Field(fieldName string) (Path, bool, error) {
 	return nil, false, &errors.PathError{}
 }
 
+func (n *indexNode) Get(src, dst reflect.Value) error {
+	switch src.Type().Kind() {
+	case reflect.Array, reflect.Slice:
+		if src.Len() > n.selector {
+			if n.child != nil {
+				return n.child.Get(src.Index(n.selector), dst)
+			}
+			return assignValue(src.Index(n.selector), dst)
+		}
+	case reflect.Ptr:
+		return n.Get(src.Elem(), dst)
+	case reflect.Interface:
+		return n.Get(reflect.ValueOf(src.Interface()), dst)
+	}
+	return fmt.Errorf("failed to get [%d] value from %s", n.selector, src.Type())
+}
+
 func (n *indexNode) String() string {
 	s := fmt.Sprintf("[%d]", n.selector)
 	if n.child != nil {
@@ -302,6 +370,25 @@ func (n *indexAllNode) Field(fieldName string) (Path, bool, error) {
 	return nil, false, &errors.PathError{}
 }
 
+func (n *indexAllNode) Get(src, dst reflect.Value) error {
+	switch src.Type().Kind() {
+	case reflect.Array, reflect.Slice:
+		for i := 0; i < src.Len(); i++ {
+			if n.child != nil {
+				n.child.Get(src.Index(i), dst)
+			} else {
+				assignValue(src.Index(i), dst)
+			}
+		}
+		return nil
+	case reflect.Ptr:
+		return n.Get(src.Elem(), dst)
+	case reflect.Interface:
+		return n.Get(reflect.ValueOf(src.Interface()), dst)
+	}
+	return fmt.Errorf("failed to get all value from %s", src.Type())
+}
+
 func (n *indexAllNode) String() string {
 	s := "[*]"
 	if n.child != nil {
@@ -316,9 +403,12 @@ type recursiveNode struct {
 }
 
 func newRecursiveNode(selector string) *recursiveNode {
+	node := newSelectorNode(selector)
 	return &recursiveNode{
-		basePathNode: &basePathNode{},
-		selector:     selector,
+		basePathNode: &basePathNode{
+			child: node,
+		},
+		selector: selector,
 	}
 }
 
@@ -331,6 +421,57 @@ func (n *recursiveNode) Field(fieldName string) (Path, bool, error) {
 
 func (n *recursiveNode) Index(_ int) (Path, bool, error) {
 	return n, true, nil
+}
+
+func (n *recursiveNode) Get(src, dst reflect.Value) error {
+	if n.child == nil {
+		return fmt.Errorf("failed to get by recursive path ..%s", n.selector)
+	}
+	switch src.Type().Kind() {
+	case reflect.Map:
+		iter := src.MapRange()
+		for iter.Next() {
+			key, ok := iter.Key().Interface().(string)
+			if !ok {
+				return fmt.Errorf("invalid map key type %T", src.Type().Key())
+			}
+			child, found, err := n.Field(strings.ToLower(key))
+			if err != nil {
+				return err
+			}
+			if found {
+				child.Get(iter.Value(), dst)
+			} else {
+				n.Get(iter.Value(), dst)
+			}
+		}
+		return nil
+	case reflect.Struct:
+		typ := src.Type()
+		for i := 0; i < typ.Len(); i++ {
+			tag := runtime.StructTagFromField(typ.Field(i))
+			child, found, err := n.Field(strings.ToLower(tag.Key))
+			if err != nil {
+				return err
+			}
+			if found {
+				child.Get(src.Field(i), dst)
+			} else {
+				n.Get(src.Field(i), dst)
+			}
+		}
+		return nil
+	case reflect.Array, reflect.Slice:
+		for i := 0; i < src.Len(); i++ {
+			n.Get(src.Index(i), dst)
+		}
+		return nil
+	case reflect.Ptr:
+		return n.Get(src.Elem(), dst)
+	case reflect.Interface:
+		return n.Get(reflect.ValueOf(src.Interface()), dst)
+	}
+	return fmt.Errorf("failed to get %s value from %s", n.selector, src.Type())
 }
 
 func (n *recursiveNode) String() string {
