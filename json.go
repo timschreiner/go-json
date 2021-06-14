@@ -287,6 +287,10 @@ func UnmarshalWithOption(data []byte, v interface{}, optFuncs ...DecodeOptionFun
 	return unmarshal(data, v, optFuncs...)
 }
 
+func UnmarshalPath(path PathString, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+	return unmarshalPath(path, data, v, optFuncs...)
+}
+
 func UnmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	return unmarshalNoEscape(data, v, optFuncs...)
 }
