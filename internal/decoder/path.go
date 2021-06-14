@@ -135,7 +135,7 @@ func (b *pathBuilder) parsePathIndex(buf []rune, cursor int) (int, error) {
 		b.index(int(num))
 		return cursor + 1, nil
 	}
-	return 0, fmt.Errorf("invalid character %s at %d", c, cursor)
+	return 0, fmt.Errorf("invalid character %s at %d", string(c), cursor)
 }
 
 type pathBuilder struct {
