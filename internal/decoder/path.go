@@ -148,7 +148,7 @@ type pathBuilder struct {
 	node Path
 }
 
-func (b *pathBuilder) indexAll() *pathBuilder {
+func (b *pathBuilder) indexAll() {
 	node := newIndexAllNode()
 	if b.root == nil {
 		b.root = node
@@ -156,10 +156,9 @@ func (b *pathBuilder) indexAll() *pathBuilder {
 	} else {
 		b.node = b.node.chain(node)
 	}
-	return b
 }
 
-func (b *pathBuilder) recursive(selector string) *pathBuilder {
+func (b *pathBuilder) recursive(selector string) {
 	node := newRecursiveNode(selector)
 	if b.root == nil {
 		b.root = node
@@ -167,10 +166,9 @@ func (b *pathBuilder) recursive(selector string) *pathBuilder {
 	} else {
 		b.node = b.node.chain(node)
 	}
-	return b
 }
 
-func (b *pathBuilder) child(name string) *pathBuilder {
+func (b *pathBuilder) child(name string) {
 	node := newSelectorNode(name)
 	if b.root == nil {
 		b.root = node
@@ -178,10 +176,9 @@ func (b *pathBuilder) child(name string) *pathBuilder {
 	} else {
 		b.node = b.node.chain(node)
 	}
-	return b
 }
 
-func (b *pathBuilder) index(idx int) *pathBuilder {
+func (b *pathBuilder) index(idx int) {
 	node := newIndexNode(idx)
 	if b.root == nil {
 		b.root = node
@@ -189,7 +186,6 @@ func (b *pathBuilder) index(idx int) *pathBuilder {
 	} else {
 		b.node = b.node.chain(node)
 	}
-	return b
 }
 
 func (b *pathBuilder) Build() Path {
@@ -375,9 +371,13 @@ func (n *indexAllNode) Get(src, dst reflect.Value) error {
 	case reflect.Array, reflect.Slice:
 		for i := 0; i < src.Len(); i++ {
 			if n.child != nil {
-				n.child.Get(src.Index(i), dst)
+				if err := n.child.Get(src.Index(i), dst); err != nil {
+					return err
+				}
 			} else {
-				assignValue(src.Index(i), dst)
+				if err := assignValue(src.Index(i), dst); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -440,9 +440,9 @@ func (n *recursiveNode) Get(src, dst reflect.Value) error {
 				return err
 			}
 			if found {
-				child.Get(iter.Value(), dst)
+				_ = child.Get(iter.Value(), dst)
 			} else {
-				n.Get(iter.Value(), dst)
+				_ = n.Get(iter.Value(), dst)
 			}
 		}
 		return nil
@@ -455,15 +455,15 @@ func (n *recursiveNode) Get(src, dst reflect.Value) error {
 				return err
 			}
 			if found {
-				child.Get(src.Field(i), dst)
+				_ = child.Get(src.Field(i), dst)
 			} else {
-				n.Get(src.Field(i), dst)
+				_ = n.Get(src.Field(i), dst)
 			}
 		}
 		return nil
 	case reflect.Array, reflect.Slice:
 		for i := 0; i < src.Len(); i++ {
-			n.Get(src.Index(i), dst)
+			_ = n.Get(src.Index(i), dst)
 		}
 		return nil
 	case reflect.Ptr:

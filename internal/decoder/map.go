@@ -220,14 +220,12 @@ func (d *mapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64, p unsa
 			ctx.Option.Path = oldPath
 			cursor = c
 			return skipObject(buf, cursor, depth)
-		} else {
-			c, err := skipValue(buf, cursor, depth)
-			if err != nil {
-				return 0, err
-			}
-			cursor = c
 		}
-		cursor = skipWhiteSpace(buf, cursor)
+		c, err := skipValue(buf, cursor, depth)
+		if err != nil {
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, c)
 		if buf[cursor] == '}' {
 			cursor++
 			return cursor, nil

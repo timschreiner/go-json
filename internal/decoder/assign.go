@@ -86,8 +86,11 @@ func assignValue(src, dst reflect.Value) error {
 	case reflect.Slice:
 		if src.Kind() != reflect.Slice {
 			v := reflect.New(dst.Type().Elem())
-			assignValue(src, v)
+			if err := assignValue(src, v); err != nil {
+				return err
+			}
 			dst.Set(reflect.Append(dst, v.Elem()))
+			return nil
 		}
 	case reflect.Map:
 	case reflect.Struct:
