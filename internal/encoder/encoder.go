@@ -531,6 +531,14 @@ func AppendIndent(ctx *RuntimeContext, b []byte, indent uint32) []byte {
 	return b
 }
 
+// IsEmptyStructType Is an interface that can be implemented to indicate to the
+// json encoder that a struct should be considered 'empty' for the purposes of 'omitempty'
+// The name is intentionally ugly to hopefully reduce the chance of someone accidentally
+// implementing the interface and having unintended side effects
+type IsEmptyStructType interface {
+	IsEmptyStructType() bool
+}
+
 func IsNilForMarshaler(v interface{}) bool {
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
@@ -546,6 +554,10 @@ func IsNilForMarshaler(v interface{}) bool {
 		return rv.IsNil()
 	case reflect.Slice:
 		return rv.IsNil() || rv.Len() == 0
+	case reflect.Struct:
+		if i, ok := rv.Interface().(IsEmptyStructType); ok {
+			return i.IsEmptyStructType()
+		}
 	}
 	return false
 }
