@@ -1,3 +1,3 @@
-module github.com/timschreiner/go-json
+module github.com/goccy/go-json
 
 go 1.12
